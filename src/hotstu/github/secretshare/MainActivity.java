@@ -97,7 +97,11 @@ public class MainActivity extends ActionBarActivity implements OnClickListener {
             return;
         }
         if (v.getId() == btnScan.getId()) {
-            qrscan();
+            if (App.SESSION == null) {
+                Toast.makeText(this, "需要先登陆", Toast.LENGTH_LONG).show();
+            } else {
+                qrscan();
+            }
             return;
         }
     }

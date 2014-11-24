@@ -32,4 +32,4 @@ Bob使用[度盘秘享]将Bob百度网盘中的文件xxx.mp4提取生成成二�
  5. okhttp
  6. zxing-core
 
-[1]: /img/2-file-explore-small.png
+[1]: /img/2-file-explore.png
