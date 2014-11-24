@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">度盘秘享</string>
+    <string name="version_name">0.1</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="refresh">刷新</string>
+    <string name="action_bar_share_with">分享到</string>
+    
+    <!-- login activity -->
+    <string name="login_username">Username</string>
+    <string name="login_password">Password</string>
+    <string name="login_button">Login</string>
+    <string name="login_philosophy">与众不同最时尚跳舞肯定棒</string>
+    <string name="title_activity_login">登录度娘</string>
+    <string name="author">© hotstu@github</string>
+    
+    <!-- FileViewer activity -->
+    <string name="title_activity_fileviewr">我的网盘</string>
+
+</resources>
