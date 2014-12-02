@@ -9,8 +9,8 @@ import org.apache.commons.io.FileUtils;
 import com.umeng.analytics.MobclickAgent;
 
 import hotstu.github.secretshare.bdapi.Entity;
-import hotstu.github.secretshare.bdapi.RapidUpTask;
-import hotstu.github.secretshare.bdapi.RapidUpTask.OnProcessListener;
+import hotstu.github.secretshare.bdapi.MoRapidUpTask;
+import hotstu.github.secretshare.bdapi.MoRapidUpTask.OnProcessListener;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
@@ -76,7 +76,7 @@ public class CodeFragment extends Fragment {
 
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
-        new RapidUpTask(getActivity(), new OnProcessListener() {
+        new MoRapidUpTask(getActivity(), new OnProcessListener() {
 
             @Override
             public void onSucess(Bitmap img) {

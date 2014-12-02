@@ -1,8 +1,8 @@
 package hotstu.github.secretshare;
 
 
-import hotstu.github.secretshare.bdapi.RapidDownTask;
-import hotstu.github.secretshare.bdapi.RapidDownTask.OnProcessListener;
+import hotstu.github.secretshare.bdapi.MoRapidDownTask;
+import hotstu.github.secretshare.bdapi.MoRapidDownTask.OnProcessListener;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
@@ -119,7 +119,7 @@ public class MainActivity extends ActionBarActivity implements OnClickListener {
             } else {
                 String data = scanResult.getContents();
                 Log.d("scaned data: ", "" + data);
-                new RapidDownTask(new OnProcessListener() {
+                new MoRapidDownTask(new OnProcessListener() {
                     
                     @Override
                     public void onSucess(String msg) {
@@ -146,8 +146,14 @@ public class MainActivity extends ActionBarActivity implements OnClickListener {
                     }
                     
                     @Override
-                    public void onFailed() {
-                        Toast.makeText(MainActivity.this, "失败咯", Toast.LENGTH_LONG).show();
+                    public void onFailed(String msg) {
+                        if (msg != null && msg.length() > 0) {
+                           
+                            Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(MainActivity.this, "失败咯,请检查网络和登陆", Toast.LENGTH_LONG).show();
+                        }
+                        
                         
                     }
                 }).execute(data);

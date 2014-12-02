@@ -15,6 +15,7 @@ import com.squareup.okhttp.Request;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
 
+@Deprecated
 public class RapidDownTask extends AsyncTask<String, String, Boolean> {
 
     public interface OnProcessListener {

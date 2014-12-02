@@ -1,17 +1,20 @@
 package hotstu.github.secretshare.bdapi;
 
 import hotstu.github.secretshare.App;
+import hotstu.github.secretshare.utils.DeviceUtils;
 import hotstu.github.secretshare.utils.FileUtil;
 import hotstu.github.secretshare.utils.HttpUtil;
 import hotstu.github.secretshare.utils.IoUtils;
+import hotstu.github.secretshare.utils.cipher.AESCodec;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Type;
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.Hashtable;
-
-import org.apache.commons.io.FilenameUtils;
+import java.util.Map;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -23,17 +26,22 @@ import android.os.AsyncTask;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
+import com.squareup.okhttp.MediaType;
 import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
+import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
 
-@Deprecated
-public class RapidUpTask extends AsyncTask<Entity, String, Bitmap> {
+public class MoRapidUpTask extends AsyncTask<Entity, String, Bitmap> {
 
     public interface OnProcessListener {
         public void onStart(String msg);
@@ -50,7 +58,7 @@ public class RapidUpTask extends AsyncTask<Entity, String, Bitmap> {
     private OnProcessListener mListener;
     private Context mContext;
 
-    public RapidUpTask(Context context, OnProcessListener listener) {
+    public MoRapidUpTask(Context context, OnProcessListener listener) {
         super();
         this.mContext = context;
         this.mListener = listener;
@@ -67,6 +75,16 @@ public class RapidUpTask extends AsyncTask<Entity, String, Bitmap> {
         
         final String contentMD5 = e.getMd5();
         final String contentLength = String.valueOf(e.getSize());
+        String crc32 = null;
+        try {
+            crc32 = head(e.getPath());
+        } catch (Exception e2) {
+            // TODO Auto-generated catch block
+            e2.printStackTrace();
+        }
+        if (crc32 == null || crc32.length() != 8) {
+            crc32 = HttpUtil.pseudoCRC32();
+        }
         String sliceMD5 = null;
         try { 
             sliceMD5 = fetch(e.getPath());
@@ -76,22 +94,31 @@ public class RapidUpTask extends AsyncTask<Entity, String, Bitmap> {
         if (sliceMD5 == null) {
             return null;
         }
+        
         publishProgress("提取成功，正在生成二维码...");
-//        String filenamebase = FilenameUtils.getBaseName(e.getFilename());
-//        String fileExtension = FilenameUtils.getExtension(e.getFilename());
-//        if (filenamebase.length() > 80) {
-//            filenamebase = filenamebase.substring(0, 80);
-//        }
-        //不检查文件名长度，可能导致二维码过密
+
         final String fileName = e.getFilename();
-        StringBuilder sb = new StringBuilder();
-        sb.append(contentLength)
-        .append(';')
-        .append(contentMD5)
-        .append(sliceMD5)
-        .append(fileName);
+        
+        Map<String, String> datadict = new HashMap<String, String>();
+        datadict.put("content-length", contentLength);
+        datadict.put("content-md5", contentMD5);
+        datadict.put("slice-md5", sliceMD5);
+        datadict.put("content-crc32", crc32);
+        datadict.put("titile", fileName);
+        Gson g = new Gson();
+        Type typeOfSrc = new TypeToken<Map<String, Object>>(){}.getType();
+        String datajson = g.toJson(datadict, typeOfSrc);
+        String key = null;
         try {
-            Bitmap bitmap = genQrcode(sb.toString(), 512);
+            key = post(datajson);
+        } catch (Exception e2) {
+            // TODO Auto-generated catch block
+            e2.printStackTrace();
+        }
+        if (key == null)
+            return null;
+        try {
+            Bitmap bitmap = genQrcode(key, 512);
             return bitmap;
         } catch (WriterException e1) {
             e1.printStackTrace();
@@ -126,6 +153,12 @@ public class RapidUpTask extends AsyncTask<Entity, String, Bitmap> {
         mListener.onFinish();
     }
 
+    /**
+     * 获取slice md5
+     * @param path
+     * @return
+     * @throws IOException
+     */
     private String fetch(String path) throws IOException {
         final String queryUrl = "http://d.pcs.baidu.com/rest/2.0/pcs/file?app_id=250528&method=download&ec=1&path=%s&err_ver=1.0&es=1";
         Request req = new Request.Builder()
@@ -177,6 +210,72 @@ public class RapidUpTask extends AsyncTask<Entity, String, Bitmap> {
         }
         
     }
+    
+    /**
+     * 通过发送head请求获取crc32 always check whether it's length == 8
+     * @param path
+     * @return 
+     * @throws IOException 
+     */
+    private String head(String path) throws Exception {
+        final String queryUrl = "http://d.pcs.baidu.com/rest/2.0/pcs/file?app_id=250528&method=download&ec=1&path=%s&err_ver=1.0&es=1";
+        Request req = new Request.Builder()
+                .url(String.format(queryUrl, URLEncoder.encode(path, "UTF-8")))
+                .addHeader("Cookie", App.SESSION)
+                .addHeader("User-Agent", HttpUtil.UA_GUANJIA)
+                .head()
+                .build();
+        OkHttpClient client = HttpUtil.getOkHttpClientinstance();
+        Response resp = client.newCall(req).execute();
+        Long crc32in = Long.valueOf(resp.header("x-bs-meta-crc32"));
+        return String.format("%08x", crc32in);
+    }
+    
+    private String post(String data) throws Exception {
+        String imei = DeviceUtils.uniqueId(mContext);
+        String macaddr = DeviceUtils.getMacAddress(mContext);
+        String aeskey = AESCodec.initkey();
+        String encryptData = AESCodec.encrypt(data, aeskey);
+        String tempdata = aeskey + ";" + imei + ";" + macaddr;
+        //System.out.println(tempdata);
+        //python python-rsa 包 和android不兼容，放弃使用rsa加密
+//        String key = Base64.encodeToString(RSACoder.encryptByPublicKey(tempdata.getBytes(), 
+//                RSAKeyGen.getPublicKey()),
+//                Base64.URL_SAFE|Base64.NO_WRAP);
+        String key = tempdata;
+        StringBuilder sb = new StringBuilder();
+        sb.append("method=add&")
+        .append("key=")
+        .append(URLEncoder.encode(key, "utf-8"))
+        .append('&')
+        .append("data=")
+        .append(URLEncoder.encode(encryptData, "utf-8"));
+        //System.out.println(sb.toString());
+        
+        final String queryUrl = "http://ddddddd.jd-app.com/secretshare/";
+
+        RequestBody body = RequestBody.create(MediaType
+                .parse("application/x-www-form-urlencoded; charset=utf-8"),
+                sb.toString());
+        Request req = new Request.Builder().url(queryUrl)
+                .addHeader("User-Agent", "Secretshare v" + App.VERSION_CODE)
+                .addHeader("Accept", "*/*").post(body).build();
+        OkHttpClient client = HttpUtil.getOkHttpClientinstance();
+        Response resp = client.newCall(req).execute();
+        HttpUtil.debugHeaders(resp);
+        JsonParser jp = new JsonParser();
+        String json = resp.body().string();
+        System.out.println(json);
+        JsonElement je = jp.parse(json);
+        if (je.getAsJsonObject().get("errno").getAsInt() == 0) {
+            return je.getAsJsonObject().get("id").getAsString();
+        }
+        else {
+            return null;
+        }
+    }
+    
+    
     
     /**
      * 
