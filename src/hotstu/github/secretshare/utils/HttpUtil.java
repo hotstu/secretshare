@@ -1,5 +1,7 @@
 package hotstu.github.secretshare.utils;
 
+import hotstu.github.secretshare.BuildConfig;
+
 import java.io.UnsupportedEncodingException;
 import java.net.CookieManager;
 import java.net.URLEncoder;
@@ -13,7 +15,6 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Response;
 
 public class HttpUtil {
-    private static final boolean DEBUG = false;
     public static final String UA_FIREFOX = "Mozilla/5.0 (Windows NT 6.1; rv:32.0) Gecko/20100101 Firefox/34.0";
     public static final String UA_NOKIA = "Mozilla/5.0 (Symbian/3; Series60/5.3 Nokia701/111.020.0307; Profile/MIDP-2.1 Configuration/CLDC-1.1 ) AppleWebKit/533.4 (KHTML, like Gecko) NokiaBrowser/7.4.1.14 Mobile Safari/533.4 3gpp-gba";
     public static final String UA_GUANJIA = "netdisk;5.0.1.6;PC;PC-Windows;6.1.7601;WindowsBaiduYunGuanJia";
@@ -80,7 +81,7 @@ public class HttpUtil {
      * @param resp
      */
     public static void debugHeaders(Response resp) {
-        if (DEBUG) {
+        if (BuildConfig.DEBUG) {
             Headers headers = resp.headers();
             System.out.println(resp.code());
 

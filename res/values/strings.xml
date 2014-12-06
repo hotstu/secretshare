@@ -2,7 +2,7 @@
 <resources>
 
     <string name="app_name">度盘秘享</string>
-    <string name="version_name">0.2</string>
+    <string name="version_name">0.3</string>
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="refresh">刷新</string>
