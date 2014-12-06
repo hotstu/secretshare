@@ -1,6 +1,5 @@
 package hotstu.github.secretshare.bdapi;
 
-
 import hotstu.github.secretshare.utils.HttpUtil;
 
 import java.io.IOException;
@@ -21,7 +20,10 @@ import com.squareup.okhttp.Request;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.AsyncTask;
+import android.support.annotation.Nullable;
 
 public class LoginTask extends AsyncTask<String, String, String> {
 
@@ -37,14 +39,12 @@ public class LoginTask extends AsyncTask<String, String, String> {
          * 需要验证码 image src = "http://wappass.baidu.com/cgi-bin/genimage?" +
          * vcodestr
          */
-        public void onVcodeIsneeded(Map<String, String> params);
+        public void onVcodeIsneeded(Map<String, String> params, Bitmap captcha);
 
         /**
          * 失败
          */
-        public void onFailed();
-
-        public void onFailed(String msg);
+        public void onFailed(Map<String, String> params, String msg);
 
         /**
          * 成功
@@ -52,24 +52,36 @@ public class LoginTask extends AsyncTask<String, String, String> {
          * @param result
          */
         public void onSuccess(String result);
-        
+
         public void onFinish();
     }
 
     private String username;
     private String password;
     private Map<String, String> cachedParams;
+    private Map<String, String> newParams = null;
+    private Bitmap captcha;
     private String erroInfo;
     private final OnLoginListener mListener;
     private final OkHttpClient client;
     private final String nokia;
     /**
-     *  1 需要验证码<br> 2 已知错误(账号密码错误) <br>  3 未知错误
+     * 1 需要验证码<br>
+     * 2 已知错误(账号密码错误) <br>
+     * 3 未知错误
      */
     private int errno = -1;
 
-    public LoginTask(OnLoginListener mListener) {
+    /**
+     * 
+     * @param params
+     *            can be null
+     * @param mListener
+     */
+    public LoginTask(@Nullable Map<String, String> params,
+            OnLoginListener mListener) {
         super();
+        this.cachedParams = params;
         this.mListener = mListener;
         this.client = HttpUtil.getOkHttpClientinstance();
         this.client.setCookieHandler(HttpUtil.getCookieMgrinstance());
@@ -96,45 +108,45 @@ public class LoginTask extends AsyncTask<String, String, String> {
         this.username = params[0];
         this.password = params[1];
 
-        publishProgress("正在下载登陆页面...");
-        // ####################################################################
-        Request req = new Request.Builder()
-                .url("http://wappass.baidu.com/passport/login")
-                .addHeader("Referer", "").addHeader("User-Agent", nokia)
-                .build();
-        Response resp = null;
-        try {
-            resp = client.newCall(req).execute();
-            HttpUtil.debugHeaders(resp);
-            if (resp.code() != 200) {
-                publishProgress("下载登陆页面失败.请检查网络连接");
+        Map<String, String> paramsDict;
+        if (this.cachedParams == null) {
+            // it's first time we will load the login page and parse login
+            // params
+            publishProgress("正在下载登陆页面...");
+            try {
+                paramsDict = loadParams();
+            } catch (IOException e) {
+                e.printStackTrace();
                 return null;
             }
-            publishProgress("正在提取登陆页面信息...");
-            Map<String, String> paramsDict = parseInput(resp.body().string());
-            if (paramsDict == null)
-                publishProgress("提取登陆页面信息失败 :(");
-            paramsDict.put("username", this.username);
-            paramsDict.put("password", this.password);
 
-            StringBuilder payload = new StringBuilder();
-            for (String k : paramsDict.keySet()) {
-                payload.append(k + "=" + paramsDict.get(k) + "&");
-            }
-            payload.deleteCharAt(payload.length() - 1);
-            // ####################################################################
-            publishProgress("正在提交登陆...");
-            RequestBody body = RequestBody.create(MediaType
-                    .parse("application/x-www-form-urlencoded; charset=utf-8"),
-                    payload.toString());
-            Request post = new Request.Builder()
-                    .url("http://wappass.baidu.com/passport/login")
-                    .addHeader("Referer",
-                            "http://wappass.baidu.com/passport/login")
-                    .addHeader("User-Agent", nokia).post(body).build();
+        } else {
+            // as it is not the first time login we have a cached params
+            paramsDict = this.cachedParams;
+        }
+        if (paramsDict == null) {
+            erroInfo = "提取登陆页面信息失败 :(";
+            return null;
+        }
+        paramsDict.put("username", this.username);
+        paramsDict.put("password", this.password);
+        StringBuilder payload = new StringBuilder();
+        for (String k : paramsDict.keySet()) {
+            payload.append(k + "=" + paramsDict.get(k) + "&");
+        }
+        payload.deleteCharAt(payload.length() - 1);
+
+        publishProgress("正在提交登陆...");
+        RequestBody body = RequestBody.create(MediaType
+                .parse("application/x-www-form-urlencoded; charset=utf-8"),
+                payload.toString());
+        Request post = new Request.Builder()
+                .url("http://wappass.baidu.com/passport/login")
+                .addHeader("Referer", "http://wappass.baidu.com/passport/login")
+                .addHeader("User-Agent", nokia).post(body).build();
+        try {
             Response afterPost = client.newCall(post).execute();
             HttpUtil.debugHeaders(afterPost);
-
             List<HttpCookie> cookies = ((CookieManager) this.client
                     .getCookieHandler()).getCookieStore().getCookies();
             for (HttpCookie c : cookies) {
@@ -147,21 +159,21 @@ public class LoginTask extends AsyncTask<String, String, String> {
             // 2 账号密码错误
             // 3 未知错误
             Document soup = Jsoup.parse(afterPost.body().string());
+            newParams = parseInput(soup);
             Elements errors = soup.select("div#error_area");
             if (errors.size() > 0) {
                 erroInfo = errors.first().text();
-                cachedParams = parseInput(soup);
-                if (cachedParams.containsKey("verifycode")) {
+                if (newParams.containsKey("verifycode")) {
                     // 1 需要验证码
                     // image src = "http://wappass.baidu.com/cgi-bin/genimage?"
                     // +
                     // vcodestr
+                    captcha = loadCaptcha("http://wappass.baidu.com/cgi-bin/genimage?"
+                            + newParams.get("vcodestr"));
                     errno = 1;
-                } else
-                    errno = 2;
+                } 
             } else {
-                erroInfo = "未知错误";
-                errno = 3;
+                errno = 2;
             }
             return null;
         } catch (IOException e) {
@@ -182,23 +194,15 @@ public class LoginTask extends AsyncTask<String, String, String> {
         } else {
             if (errno == 1) {
                 // 需要验证码，使用cachedParams
-                mListener.onVcodeIsneeded(cachedParams);
-                mListener.onFinish();
-                return;
-            }
+                mListener.onVcodeIsneeded(newParams, captcha);
 
-            if (errno == 2) {
-                // 已知错误，使用erroinfo
-                mListener.onFailed(erroInfo);
-                mListener.onFinish();
-                return;
             } else {
-                mListener.onFailed();
-                mListener.onFinish();
-                // 未知错误
+                mListener.onFailed(newParams, erroInfo);
             }
+            mListener.onFinish();
+            return;
         }
-        
+
     }
 
     @Override
@@ -221,15 +225,45 @@ public class LoginTask extends AsyncTask<String, String, String> {
                 .first();
         if (elementForm == null) {
             return null;
-        } 
+        }
         Elements inputs = elementForm.select("input");
         Map<String, String> params = new HashMap<String, String>();
         for (Element element : inputs) {
-            
+
             params.put(element.attr("name"), element.attr("value"));
         }
         return params;
     }
 
-    
+    private Map<String, String> loadParams() throws IOException {
+        Request req = new Request.Builder()
+                .url("http://wappass.baidu.com/passport/login")
+                .addHeader("Referer", "").addHeader("User-Agent", nokia)
+                .build();
+        Response resp = client.newCall(req).execute();
+        HttpUtil.debugHeaders(resp);
+        if (resp.code() != 200) {
+            erroInfo = "下载登陆页面失败.请检查网络连接";
+            return null;
+        }
+        publishProgress("正在提取登陆页面信息...");
+        Map<String, String> paramsDict = parseInput(resp.body().string());
+        return paramsDict;
+    }
+
+    private Bitmap loadCaptcha(String url) throws IOException {
+        publishProgress("正在提取验证码...");
+        Request req = new Request.Builder()
+                .url(url)
+                .addHeader("Referer", "http://wappass.baidu.com/passport/login")
+                .addHeader("User-Agent", nokia).get().build();
+        Response resp = client.newCall(req).execute();
+        HttpUtil.debugHeaders(resp);
+        if (resp.code() != 200) {
+            erroInfo = "下载验证码失败.请检查网络连接";
+            return null;
+        }
+        return BitmapFactory.decodeStream(resp.body().byteStream());
+    }
+
 }

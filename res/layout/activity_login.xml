@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
     android:background="@color/floralwhite"
+    android:orientation="vertical"
     android:paddingLeft="10dp"
-    android:paddingRight="10dp" >
+    android:paddingRight="10dp"
+    tools:context="hotstu.github.secretshare.LoginActivity" >
 
     <EditText
         android:id="@+id/login_username"
@@ -27,6 +29,30 @@
         android:textSize="20sp" >
     </EditText>
 
+    <LinearLayout
+        android:id="@+id/login_captcha_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone" >
+
+        <ImageView
+            android:id="@+id/login_captcha_image"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/login_captcha"
+            android:src="@drawable/ic_launcher" />
+
+        <EditText
+            android:id="@+id/login_captcha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/login_captcha"
+            android:inputType="text"
+            android:textSize="20sp" >
+        </EditText>
+    </LinearLayout>
+
     <Button
         android:id="@+id/login_button"
         android:layout_width="match_parent"
@@ -44,7 +70,7 @@
         android:paddingTop="0dp"
         android:text="@string/login_philosophy" >
     </TextView>
-    
-    <include layout="@layout/footer"/>
+
+    <include layout="@layout/footer" />
 
 </LinearLayout>

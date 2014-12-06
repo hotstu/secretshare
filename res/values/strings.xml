@@ -12,6 +12,7 @@
     <string name="login_username">Username</string>
     <string name="login_password">Password</string>
     <string name="login_button">Login</string>
+    <string name="login_captcha">captcha</string>
     <string name="login_philosophy">与众不同最时尚跳舞肯定棒</string>
     <string name="title_activity_login">登录度娘</string>
     <string name="author">© hotstu@github</string>
